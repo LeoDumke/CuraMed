@@ -1,4 +1,4 @@
-Sistema CuraMed – Banco de Dados
+### Sistema CuraMed – Banco de Dados
 
 Descrição do Projeto
 O sistema CuraMed é um banco de dados desenvolvido para o controle de venda de materiais hospitalares. O objetivo é gerenciar clientes, fornecedores, produtos e vendas de forma organizada e estruturada.
@@ -40,41 +40,41 @@ Projeto acadêmico desenvolvido para disciplina de Banco de Dados.
 Observação
 O arquivo `curamed.sql` contém todo o script do banco de dados e pode ser executado em um ambiente PostgreSQL para recriação completa do sistema.
 
-### Como Executar os Scripts SQL
+#### Como Executar os Scripts SQL
 
 Os scripts foram desenvolvidos para PostgreSQL e devem ser executados na ordem apresentada abaixo.
 
-### 1. Criar o banco de dados
+##### 1. Criar o banco de dados
 
 ```bash
 psql -U postgres -f sql/01_create_database.sql
 ```
 
-### 2. Criar as tabelas e constraints
+##### 2. Criar as tabelas e constraints
 
 ```bash
 psql -U postgres -d hospital_estoque -f sql/02_create_tables.sql
 ```
 
-### 3. Criar os índices
+##### 3. Criar os índices
 
 ```bash
 psql -U postgres -d hospital_estoque -f sql/03_indexes.sql
 ```
 
-### 4. Inserir os dados de exemplo
+##### 4. Inserir os dados de exemplo
 
 ```bash
 psql -U postgres -d hospital_estoque -f sql/04_dados_exemplo.sql
 ```
 
-### 5. Executar as consultas dos relatórios
+##### 5. Executar as consultas dos relatórios
 
 ```bash
 psql -U postgres -d hospital_estoque -f sql/05_consultas.sql
 ```
 
-### Observações
+#### Observações
 
 - Os scripts devem ser executados na ordem apresentada.
 - O usuário PostgreSQL utilizado nos exemplos é `postgres`.

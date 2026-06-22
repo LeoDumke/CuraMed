@@ -40,7 +40,7 @@ Projeto acadêmico desenvolvido para disciplina de Banco de Dados.
 Observação
 O arquivo `curamed.sql` contém todo o script do banco de dados e pode ser executado em um ambiente PostgreSQL para recriação completa do sistema.
 
-## Como Executar os Scripts SQL
+### Como Executar os Scripts SQL
 
 Os scripts foram desenvolvidos para PostgreSQL e devem ser executados na ordem apresentada abaixo.
 

@@ -1,0 +1,767 @@
+
+-- SISTEMA DE GERENCIAMENTO DE BIBLIOTECA
+
+CREATE DATABASE IF NOT EXISTS biblioteca;
+
+USE biblioteca;
+
+-- TABELA BIBLIOTECARIO
+
+CREATE TABLE bibliotecario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE
+);
+-- TABELA LIVRO
+
+CREATE TABLE livro (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    titulo VARCHAR(150) NOT NULL,
+    autor VARCHAR(100) NOT NULL,
+    editora VARCHAR(100),
+    categoria VARCHAR(80)
+);
+
+-- TABELA USUARIO
+
+CREATE TABLE usuario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    cpf VARCHAR(14) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    telefone VARCHAR(20)
+);
+
+-- TABELA EXEMPLAR_LIVRO
+
+CREATE TABLE exemplar_livro (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    livro_id INT NOT NULL,
+    codigo VARCHAR(30) NOT NULL UNIQUE,
+
+    status ENUM(
+        'Disponível',
+        'Emprestado',
+        'Em manutenção'
+    ) DEFAULT 'Disponível',
+
+    FOREIGN KEY (livro_id)
+        REFERENCES livro(id)
+);
+
+-- TABELA EMPRESTIMO
+
+CREATE TABLE emprestimo (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+
+    usuario_id INT NOT NULL,
+    exemplar_id INT NOT NULL,
+    bibliotecario_id INT NOT NULL,
+
+    data_emprestimo DATE NOT NULL,
+    data_devolucao DATE NOT NULL,
+    data_devolucao_real DATE,
+
+    status ENUM(
+        'Ativo',
+        'Devolvido',
+        'Atrasado'
+    ) DEFAULT 'Ativo',
+
+    FOREIGN KEY (usuario_id)
+        REFERENCES usuario(id),
+
+    FOREIGN KEY (exemplar_id)
+        REFERENCES exemplar_livro(id),
+
+    FOREIGN KEY (bibliotecario_id)
+        REFERENCES bibliotecario(id),
+
+    CONSTRAINT chk_datas_emprestimo
+        CHECK (data_devolucao >= data_emprestimo)
+);
+
+-- TABELA DE AUDITORIA
+
+CREATE TABLE auditoria (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tabela VARCHAR(50) NOT NULL,
+    operacao VARCHAR(50) NOT NULL,
+    descricao TEXT,
+    data_hora DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. INSERIR DADOS DE TESTE
+
+INSERT INTO bibliotecario (nome, email)
+VALUES
+('Carlos Silva', 'carlos@email.com'),
+('Ana Souza', 'ana@email.com');
+
+
+INSERT INTO livro (titulo, autor, editora, categoria)
+VALUES
+('Dom Casmurro', 'Machado de Assis', 'Principis', 'Romance'),
+('O Hobbit', 'J.R.R. Tolkien', 'HarperCollins', 'Fantasia'),
+('1984', 'George Orwell', 'Companhia das Letras', 'Ficção');
+
+
+INSERT INTO usuario (nome, cpf, email, telefone)
+VALUES
+('João Pedro', '12345678900', 'joao@email.com', '49999999999'),
+('Maria Oliveira', '98765432100', 'maria@email.com', '48988888888');
+
+
+INSERT INTO exemplar_livro (livro_id, codigo, status)
+VALUES
+(1, 'LIV001', 'Disponível'),
+(1, 'LIV002', 'Disponível'),
+(2, 'LIV003', 'Disponível'),
+(3, 'LIV004', 'Disponível');
+
+-- CRIAR INDICES
+
+CREATE INDEX idx_livro_titulo
+ON livro(titulo);
+
+CREATE INDEX idx_livro_autor
+ON livro(autor);
+
+CREATE INDEX idx_exemplar_status
+ON exemplar_livro(status);
+
+CREATE INDEX idx_exemplar_livro
+ON exemplar_livro(livro_id);
+
+CREATE INDEX idx_emprestimo_usuario
+ON emprestimo(usuario_id);
+
+CREATE INDEX idx_emprestimo_exemplar
+ON emprestimo(exemplar_id);
+
+CREATE INDEX idx_emprestimo_bibliotecario
+ON emprestimo(bibliotecario_id);
+
+CREATE INDEX idx_emprestimo_status
+ON emprestimo(status);
+
+CREATE INDEX idx_emprestimo_data
+ON emprestimo(data_devolucao);
+
+-- CRIAR VIEWS
+
+
+-- VIEW 1:EMPRESTIMOS COMPLETOS
+
+CREATE VIEW vw_emprestimos_completos AS
+
+SELECT
+    e.id AS emprestimo_id,
+    u.nome AS usuario,
+    l.titulo AS livro,
+    ex.codigo AS codigo_exemplar,
+    b.nome AS bibliotecario,
+    e.data_emprestimo,
+    e.data_devolucao,
+    e.data_devolucao_real,
+    e.status
+
+FROM emprestimo e
+
+INNER JOIN usuario u
+    ON e.usuario_id = u.id
+
+INNER JOIN exemplar_livro ex
+    ON e.exemplar_id = ex.id
+
+INNER JOIN livro l
+    ON ex.livro_id = l.id
+
+INNER JOIN bibliotecario b
+    ON e.bibliotecario_id = b.id;
+
+
+-- VIEW 2:LIVROS DISPONIVEIS
+
+CREATE VIEW vw_livros_disponiveis AS
+
+SELECT
+    l.id AS livro_id,
+    l.titulo,
+    l.autor,
+    l.categoria,
+    ex.id AS exemplar_id,
+    ex.codigo
+
+FROM livro l
+
+INNER JOIN exemplar_livro ex
+    ON l.id = ex.livro_id
+
+WHERE ex.status = 'Disponível';
+
+
+-- VIEW 3:EMPRESTIMOS ATRASADOS
+
+CREATE VIEW vw_emprestimos_atrasados AS
+
+SELECT
+    e.id AS emprestimo_id,
+    u.nome AS usuario,
+    l.titulo AS livro,
+    e.data_emprestimo,
+    e.data_devolucao,
+    DATEDIFF(CURDATE(), e.data_devolucao)
+        AS dias_atrasados
+
+FROM emprestimo e
+
+INNER JOIN usuario u
+    ON e.usuario_id = u.id
+
+INNER JOIN exemplar_livro ex
+    ON e.exemplar_id = ex.id
+
+INNER JOIN livro l
+    ON ex.livro_id = l.id
+
+WHERE e.status IN ('Ativo', 'Atrasado')
+AND e.data_devolucao < CURDATE();
+
+--  TRIGGERS
+
+DELIMITER $$
+
+-- TRIGGER 1: VERIFICAR DISPONIBILIDADE
+
+CREATE TRIGGER trg_verificar_exemplar
+
+BEFORE INSERT ON emprestimo
+
+FOR EACH ROW
+BEGIN
+
+    DECLARE situacao VARCHAR(30);
+    DECLARE quantidade INT;
+
+    SELECT COUNT(*)
+    INTO quantidade
+    FROM exemplar_livro
+    WHERE id = NEW.exemplar_id;
+
+    IF quantidade = 0 THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Exemplar nao encontrado';
+
+    END IF;
+
+    SELECT status
+    INTO situacao
+    FROM exemplar_livro
+    WHERE id = NEW.exemplar_id;
+
+    IF situacao <> 'Disponível' THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+        'Exemplar indisponivel para emprestimo';
+
+    END IF;
+
+END$$
+
+
+-- TRIGGER 2: ATUALIZAR STATUS DO EXEMPLAR
+
+CREATE TRIGGER trg_atualizar_exemplar
+
+AFTER INSERT ON emprestimo
+
+FOR EACH ROW
+BEGIN
+
+    UPDATE exemplar_livro
+
+    SET status = 'Emprestado'
+
+    WHERE id = NEW.exemplar_id;
+
+END$$
+
+
+-- TRIGGER 3: ATUALIZAR STATUS NA DEVOLUCAO
+
+CREATE TRIGGER trg_devolucao_exemplar
+
+AFTER UPDATE ON emprestimo
+
+FOR EACH ROW
+BEGIN
+
+    IF NEW.status = 'Devolvido'
+       AND OLD.status <> 'Devolvido' THEN
+
+        UPDATE exemplar_livro
+
+        SET status = 'Disponível'
+
+        WHERE id = NEW.exemplar_id;
+
+    END IF;
+
+END$$
+
+
+-- TRIGGER 4: AUDITORIA DE NOVOS EMPRESTIMOS
+
+CREATE TRIGGER trg_auditoria_emprestimo
+
+AFTER INSERT ON emprestimo
+
+FOR EACH ROW
+BEGIN
+
+    INSERT INTO auditoria
+    (tabela, operacao, descricao)
+
+    VALUES (
+        'emprestimo',
+        'INSERT',
+        CONCAT(
+            'Novo emprestimo registrado. ID: ',
+            NEW.id
+        )
+    );
+
+END$$
+
+
+-- TRIGGER 5: AUDITORIA DE ALTERACOES
+
+CREATE TRIGGER trg_auditoria_devolucao
+
+AFTER UPDATE ON emprestimo
+
+FOR EACH ROW
+BEGIN
+
+    INSERT INTO auditoria
+    (tabela, operacao, descricao)
+
+    VALUES (
+        'emprestimo',
+        'UPDATE',
+        CONCAT(
+            'Emprestimo ID ',
+            NEW.id,
+            ' alterado. Status anterior: ',
+            OLD.status,
+            '. Novo status: ',
+            NEW.status
+        )
+    );
+
+END$$
+
+-- 12. STORED PROCEDURES
+
+-- PROCEDURE 1: REALIZAR EMPRESTIMO
+
+CREATE PROCEDURE realizar_emprestimo(
+
+    IN p_usuario_id INT,
+    IN p_exemplar_id INT,
+    IN p_bibliotecario_id INT,
+    IN p_data_devolucao DATE
+
+)
+BEGIN
+
+    DECLARE situacao VARCHAR(30);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT status
+    INTO situacao
+    FROM exemplar_livro
+    WHERE id = p_exemplar_id
+    FOR UPDATE;
+
+    IF situacao IS NULL OR situacao <> 'Disponível' THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Exemplar indisponivel';
+
+    END IF;
+
+    INSERT INTO emprestimo (
+        usuario_id,
+        exemplar_id,
+        bibliotecario_id,
+        data_emprestimo,
+        data_devolucao,
+        status
+    )
+
+    VALUES (
+        p_usuario_id,
+        p_exemplar_id,
+        p_bibliotecario_id,
+        CURDATE(),
+        p_data_devolucao,
+        'Ativo'
+    );
+
+    COMMIT;
+
+END$$
+
+
+-- PROCEDURE 2: REALIZAR DEVOLUCAO
+
+CREATE PROCEDURE realizar_devolucao(
+
+    IN p_emprestimo_id INT
+
+)
+BEGIN
+
+    DECLARE situacao VARCHAR(30);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT status
+    INTO situacao
+    FROM emprestimo
+    WHERE id = p_emprestimo_id
+    FOR UPDATE;
+
+    IF situacao IS NULL THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Emprestimo nao encontrado';
+
+    END IF;
+
+    IF situacao = 'Devolvido' THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Livro ja devolvido';
+
+    END IF;
+
+    UPDATE emprestimo
+
+    SET
+        status = 'Devolvido',
+        data_devolucao_real = CURDATE()
+
+    WHERE id = p_emprestimo_id;
+
+    COMMIT;
+
+END$$
+
+
+DELIMITER ;
+
+-- 13. CRIAR ROLES E PERMISSOES
+
+CREATE ROLE 'administrador';
+
+CREATE ROLE 'bibliotecario';
+
+CREATE ROLE 'leitor';
+
+-- PERMISSOES DO ADMINISTRADOR
+
+GRANT ALL PRIVILEGES
+ON biblioteca.*
+TO 'administrador';
+
+-- PERMISSOES DO BIBLIOTECARIO
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON biblioteca.livro
+TO 'bibliotecario';
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON biblioteca.usuario
+TO 'bibliotecario';
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON biblioteca.exemplar_livro
+TO 'bibliotecario';
+
+GRANT SELECT
+ON biblioteca.bibliotecario
+TO 'bibliotecario';
+
+GRANT SELECT, INSERT, UPDATE
+ON biblioteca.emprestimo
+TO 'bibliotecario';
+
+GRANT SELECT
+ON biblioteca.auditoria
+TO 'bibliotecario';
+
+GRANT SELECT
+ON biblioteca.vw_emprestimos_completos
+TO 'bibliotecario';
+
+GRANT SELECT
+ON biblioteca.vw_livros_disponiveis
+TO 'bibliotecario';
+
+GRANT SELECT
+ON biblioteca.vw_emprestimos_atrasados
+TO 'bibliotecario';
+
+GRANT EXECUTE
+ON PROCEDURE biblioteca.realizar_emprestimo
+TO 'bibliotecario';
+
+GRANT EXECUTE
+ON PROCEDURE biblioteca.realizar_devolucao
+TO 'bibliotecario';
+
+
+-- PERMISSOES DO LEITOR
+
+GRANT SELECT
+ON biblioteca.vw_livros_disponiveis
+TO 'leitor';
+
+-- 14. CRIAR USUARIOS
+
+CREATE USER 'admin_biblioteca'@'localhost'
+IDENTIFIED BY 'Troque_Admin_123!';
+
+CREATE USER 'funcionario'@'localhost'
+IDENTIFIED BY 'Troque_Func_123!';
+
+CREATE USER 'leitor_biblioteca'@'localhost'
+IDENTIFIED BY 'Troque_Leitor_123!';
+
+
+-- ASSOCIAR USUARIOS AS ROLES
+
+GRANT 'administrador'
+TO 'admin_biblioteca'@'localhost';
+
+GRANT 'bibliotecario'
+TO 'funcionario'@'localhost';
+
+GRANT 'leitor'
+TO 'leitor_biblioteca'@'localhost';
+
+
+-- DEFINIR ROLES PADRAO
+
+SET DEFAULT ROLE 'administrador'
+TO 'admin_biblioteca'@'localhost';
+
+SET DEFAULT ROLE 'bibliotecario'
+TO 'funcionario'@'localhost';
+
+SET DEFAULT ROLE 'leitor'
+TO 'leitor_biblioteca'@'localhost';
+
+-- 15. RELATORIOS E CONSULTAS
+
+-- CONSULTAR TODOS OS LIVROS
+
+SELECT * FROM livro;
+
+
+-- CONSULTAR TODOS OS USUARIOS
+
+SELECT * FROM usuario;
+
+
+-- CONSULTAR BIBLIOTECARIOS
+
+SELECT * FROM bibliotecario;
+
+
+-- CONSULTAR EXEMPLARES
+
+SELECT * FROM exemplar_livro;
+
+
+-- CONSULTAR EMPRESTIMOS
+
+SELECT * FROM emprestimo;
+
+
+-- RELATORIO 1: EMPRESTIMOS COMPLETOS
+
+SELECT *
+FROM vw_emprestimos_completos;
+
+
+-- RELATORIO 2: LIVROS DISPONIVEIS
+
+SELECT *
+FROM vw_livros_disponiveis;
+
+
+-- RELATORIO 3: EMPRESTIMOS ATRASADOS
+
+SELECT *
+FROM vw_emprestimos_atrasados;
+
+
+-- RELATORIO 4: HISTORICO DE UM USUARIO
+
+SELECT
+    u.nome,
+    l.titulo,
+    e.data_emprestimo,
+    e.data_devolucao,
+    e.data_devolucao_real,
+    e.status
+
+FROM usuario u
+
+INNER JOIN emprestimo e
+    ON u.id = e.usuario_id
+
+INNER JOIN exemplar_livro ex
+    ON e.exemplar_id = ex.id
+
+INNER JOIN livro l
+    ON ex.livro_id = l.id
+
+WHERE u.id = 1;
+
+
+-- RELATORIO 5: LIVROS MAIS EMPRESTADOS
+
+SELECT
+    l.titulo,
+    COUNT(e.id) AS quantidade_emprestimos
+
+FROM livro l
+
+INNER JOIN exemplar_livro ex
+    ON l.id = ex.livro_id
+
+INNER JOIN emprestimo e
+    ON ex.id = e.exemplar_id
+
+GROUP BY l.id, l.titulo
+
+ORDER BY quantidade_emprestimos DESC;
+
+
+-- RELATORIO 6: CONSULTAR AUDITORIA
+
+SELECT *
+FROM auditoria
+ORDER BY data_hora DESC;
+
+-- 16. TESTAR STORED PROCEDURES
+
+-- REALIZAR UM EMPRESTIMO
+-- Exemplo: usuario 1, exemplar 1, bibliotecario 1.
+
+-- CALL realizar_emprestimo(
+--     1,
+--     1,
+--     1,
+--     '2026-12-01'
+-- );
+
+
+-- REALIZAR UMA DEVOLUCAO
+-- Utilize o ID do emprestimo criado.
+
+-- CALL realizar_devolucao(1);
+
+-- 17. CONSULTAR ESTRUTURA DO BANCO
+
+SHOW TABLES;
+
+SHOW FULL TABLES WHERE Table_type = 'VIEW';
+
+SHOW TRIGGERS;
+
+SHOW PROCEDURE STATUS
+WHERE Db = 'biblioteca';
+
+SHOW INDEX FROM livro;
+
+SHOW INDEX FROM emprestimo;
+
+-- 18. BACKUP E RESTORE
+
+-- BACKUP:
+-- Executar no terminal do sistema operacional:
+--
+-- mysqldump -u root -p --databases biblioteca > backup_biblioteca.sql
+--
+-- RESTORE:
+-- Executar no terminal do sistema operacional:
+--
+-- mysql -u root -p < backup_biblioteca.sql
+--
+-- POLITICA:
+-- Frequencia: diaria.
+-- Horario: durante a madrugada.
+-- Tipo: backup completo.
+-- Armazenamento: local externo ou nuvem segura.
+-- Retencao: 30 dias.
+-- Teste de restauracao: mensal.
+
+-- DOCUMENTACAO DO PROJETO
+
+
+-- SISTEMA DE GERENCIAMENTO DE BIBLIOTECA
+--
+-- OBJETIVO:
+-- Gerenciar livros, usuarios, bibliotecarios,
+-- exemplares e emprestimos.
+--
+-- TABELAS:
+-- bibliotecario
+-- livro
+-- usuario
+-- exemplar_livro
+-- emprestimo
+-- auditoria
+--
+-- RECURSOS:
+-- Chaves primarias e estrangeiras.
+-- Indices.
+-- Views.
+-- Triggers.
+-- Stored Procedures.
+-- Usuarios, roles e privilegios.
+-- Backup e Restore.
+--
+-- RELACIONAMENTOS:
+-- Um livro pode possuir varios exemplares.
+-- Um usuario pode realizar varios emprestimos.
+-- Um bibliotecario pode registrar varios emprestimos.
+-- Um exemplar pode participar de varios emprestimos
+-- ao longo do tempo.
+--
+-- NORMALIZACAO:
+-- Estrutura organizada seguindo 1FN, 2FN e 3FN.
+--
+-- TECNOLOGIA:
+-- MySQL 8.0+

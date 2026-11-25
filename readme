@@ -1,0 +1,314 @@
+Sistema de Gerenciamento de Biblioteca
+
+1. Sobre o projeto
+
+Este projeto foi desenvolvido para a disciplina de Banco de Dados II e tem como objetivo criar um sistema de gerenciamento de biblioteca, facilitando o controle e a organização dos livros, usuários, bibliotecários e empréstimos.
+
+A ideia é desenvolver um sistema que permita organizar melhor as informações da biblioteca, evitando controles manuais e facilitando tarefas como cadastrar livros, consultar exemplares disponíveis, registrar empréstimos e controlar devoluções.
+
+O projeto utiliza o MySQL para armazenar e organizar os dados, com uma estrutura que busca manter as informações seguras, organizadas e sem repetições desnecessárias.
+
+2. Objetivos do sistema
+
+O principal objetivo é facilitar o gerenciamento de uma biblioteca por meio de um banco de dados organizado.
+
+Entre as principais funções do sistema estão:
+
+- Cadastrar e consultar livros.
+- Armazenar informações dos usuários.
+- Registrar os bibliotecários responsáveis.
+- Controlar os exemplares de cada livro.
+- Registrar empréstimos e devoluções.
+- Consultar livros disponíveis.
+- Identificar empréstimos atrasados.
+- Consultar o histórico de empréstimos.
+- Registrar alterações importantes no sistema.
+
+3. Tecnologias utilizadas
+
+As principais tecnologias utilizadas no desenvolvimento do projeto são:
+
+- **MySQL 8.0+:** utilizado para criar e gerenciar o banco de dados.
+- **SQL:** utilizado para criar tabelas, consultas, relacionamentos e outras funcionalidades.
+- **Java:** linguagem utilizada no desenvolvimento da aplicação.
+- **JDBC:** utilizado para realizar a comunicação entre Java e MySQL.
+- **HTML, CSS e JavaScript:** utilizados na parte visual do site, quando integrados à aplicação.
+- **Git e GitHub:** utilizados para organizar e compartilhar os arquivos do projeto.
+
+4. Estrutura do banco de dados
+
+O banco de dados possui seis tabelas principais, cada uma responsável por armazenar um tipo de informação.
+
+Tabelas utilizadas
+
+1. bibliotecario
+
+Armazena os dados dos funcionários responsáveis pelo gerenciamento da biblioteca.
+
+Informações:
+- ID
+- Nome
+- E-mail
+
+2. livro
+
+Armazena as informações dos livros cadastrados.
+
+Informações:
+- ID
+- Título
+- Autor
+- Editora
+- Categoria
+
+3. usuario
+
+Armazena os dados das pessoas que utilizam a biblioteca.
+
+Informações:
+- ID
+- Nome
+- CPF
+- E-mail
+- Telefone
+
+4. exemplar_livro**
+
+Controla os exemplares físicos de cada livro, permitindo que um mesmo título tenha várias unidades disponíveis.
+
+Informações:
+- ID
+- ID do livro
+- Código do exemplar
+- Status
+
+Os exemplares podem ter três situações:
+- Disponível
+- Emprestado
+- Em manutenção
+
+5. emprestimo
+
+Armazena os registros de empréstimos realizados na biblioteca.
+
+Informações:
+- ID
+- Usuário
+- Exemplar
+- Bibliotecário
+- Data do empréstimo
+- Data prevista para devolução
+- Data da devolução real
+- Status
+
+6. auditoria
+
+Registra informações sobre operações importantes realizadas no banco de dados, como novos empréstimos e alterações nos registros.
+
+Informações:
+- ID
+- Tabela
+- Operação
+- Descrição
+- Data e hora
+
+5. Relacionamentos entre as tabelas
+
+As tabelas possuem relacionamentos por meio de chaves primárias e estrangeiras (Primary Key e Foreign Key).
+
+Os principais relacionamentos são:
+
+- Um livro pode possuir vários exemplares.
+- Um usuário pode realizar vários empréstimos.
+- Um bibliotecário pode registrar vários empréstimos.
+- Um exemplar pode participar de vários empréstimos ao longo do tempo.
+
+Esses relacionamentos ajudam a manter os dados conectados e evitam que informações importantes fiquem separadas.
+
+6. Normalização do banco de dados
+
+O banco de dados foi organizado seguindo os princípios de normalização, considerando a Primeira Forma Normal (1FN), Segunda Forma Normal (2FN) e Terceira Forma Normal (3FN).
+
+O objetivo é evitar informações repetidas, melhorar a organização das tabelas e facilitar as consultas e alterações nos dados.
+
+A separação entre livros e exemplares, por exemplo, permite cadastrar várias unidades de um mesmo livro sem precisar repetir todas as informações do título.
+
+7. Índices
+
+Foram criados índices para melhorar o desempenho das consultas e facilitar a localização de informações.
+
+Os índices foram aplicados principalmente em campos utilizados com frequência nas pesquisas, como:
+
+- Título do livro.
+- Autor.
+- Status dos exemplares.
+- Usuário dos empréstimos.
+- Exemplar dos empréstimos.
+- Bibliotecário responsável.
+- Status dos empréstimos.
+- Data prevista de devolução.
+
+Com isso, o banco de dados consegue localizar determinadas informações de maneira mais eficiente.
+
+8. Views (Visualizações)
+
+Foram criadas três views para facilitar a consulta de informações que envolvem mais de uma tabela.
+
+vw_emprestimos_completos
+
+Mostra os dados completos dos empréstimos, incluindo o nome do usuário, título do livro, código do exemplar, bibliotecário responsável e datas.
+
+vw_livros_disponiveis
+
+Mostra os livros que possuem exemplares disponíveis para empréstimo.
+
+vw_emprestimos_atrasados
+
+Mostra os empréstimos que passaram da data prevista para devolução e calcula a quantidade de dias de atraso.
+
+As views facilitam a criação de relatórios sem precisar escrever novamente todas as junções entre as tabelas.
+
+9. Triggers
+
+Os triggers foram criados para automatizar algumas tarefas e manter o funcionamento correto do sistema.
+
+Foram desenvolvidos cinco triggers:
+
+- **trg_verificar_exemplar:** verifica se o exemplar existe e está disponível antes de permitir um empréstimo.
+- **trg_atualizar_exemplar:** altera automaticamente o status do exemplar para emprestado.
+- **trg_devolucao_exemplar:** atualiza o status do exemplar para disponível quando o empréstimo é finalizado.
+- **trg_auditoria_emprestimo:** registra na auditoria quando um novo empréstimo é realizado.
+- **trg_auditoria_devolucao:** registra alterações feitas nos empréstimos.
+
+10. Stored Procedures
+
+Foram criadas duas procedures para facilitar operações importantes do sistema.
+
+realizar_emprestimo
+
+Responsável por registrar um novo empréstimo. Antes de realizar a operação, verifica se o exemplar está disponível e, caso esteja tudo certo, registra o empréstimo no banco de dados.
+
+realizar_devolucao
+
+Responsável por registrar a devolução de um empréstimo, atualizando seu status e a data da devolução real.
+
+As procedures utilizam transações para ajudar a manter a consistência dos dados durante essas operações.
+
+11. Usuários, roles e permissões
+
+O sistema possui diferentes níveis de acesso, permitindo controlar quais operações cada tipo de usuário pode realizar.
+
+Foram criadas três roles:
+
+Administrador
+
+Possui acesso completo ao banco de dados, podendo consultar, cadastrar, alterar e excluir informações.
+
+Bibliotecário**
+
+Possui permissões para gerenciar livros, usuários, exemplares e empréstimos, além de consultar relatórios e utilizar as procedures.
+
+Leitor
+
+Possui permissão para consultar a view de livros disponíveis, sem acesso direto às demais tabelas.
+
+Também foram criados usuários específicos para cada tipo de acesso, associando cada um à sua respectiva role.
+
+## 12. Relatórios e consultas
+
+O projeto possui consultas SQL para visualizar e organizar as informações armazenadas.
+
+Entre os relatórios desenvolvidos estão:
+
+- Consulta de todos os livros.
+- Consulta de todos os usuários.
+- Consulta dos bibliotecários.
+- Consulta dos exemplares.
+- Consulta dos empréstimos.
+- Relatório de empréstimos completos.
+- Relatório de livros disponíveis.
+- Relatório de empréstimos atrasados.
+- Histórico de empréstimos de um usuário.
+- Relatório dos livros mais emprestados.
+- Consulta dos registros de auditoria.
+
+Essas consultas ajudam a acompanhar o funcionamento da biblioteca e facilitam o acesso às informações.
+
+## 13. Backup e recuperação dos dados
+
+Também foi definida uma política de backup para evitar a perda das informações armazenadas.
+
+A política planejada possui as seguintes características:
+
+- Frequência: diária.
+- Horário: durante a madrugada.
+- Tipo: backup completo.
+- Armazenamento: local externo ou nuvem segura.
+- Retenção: 30 dias.
+- Teste de restauração: mensal.
+
+O backup pode ser realizado utilizando o comando `mysqldump` do MySQL.
+
+Dessa forma, caso aconteça algum problema, existe uma cópia de segurança que pode ser utilizada para recuperar os dados.
+
+## 14. Como executar o banco de dados
+
+Para executar a parte do banco de dados, siga os passos:
+
+1. Instale o MySQL 8.0 ou superior.
+2. Abra o MySQL Workbench ou outro programa compatível.
+3. Abra o arquivo SQL do projeto.
+4. Execute o script completo para criar o banco de dados e suas estruturas.
+5. Verifique se as tabelas, views, triggers e procedures foram criadas corretamente.
+6. Confira os dados de teste inseridos no banco.
+
+Caso o projeto Java esteja integrado ao banco de dados, também será necessário configurar a conexão JDBC com o MySQL.
+
+## 15. Estrutura dos arquivos do projeto
+
+A organização dos arquivos pode seguir esta estrutura:
+
+text
+Biblioteca/
+│
+├── database/
+│   └── biblioteca.sql
+│
+├── src/
+│   └── arquivos Java do sistema
+│
+├── web/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── README.md
+│
+└── .gitignore
+
+
+Essa é uma estrutura sugerida para organizar os arquivos. Ela pode ser adaptada conforme a organização final do projeto.
+
+16. Integrantes do projeto
+
+Projeto desenvolvido para a disciplina de Banco de Dados II.
+
+Integrantes:
+- Nome do integrante 1
+- Nome do integrante 2
+- Nome do integrante 3
+
+Professor(a): Nome do professor(a).
+
+Instituição: Nome da instituição.
+
+17. Status do projeto
+
+Projeto em desenvolvimento.
+
+O objetivo é construir um sistema de gerenciamento de biblioteca que reúna a parte visual, a aplicação Java e o banco de dados MySQL, permitindo organizar e controlar as principais atividades de uma biblioteca.
+
+
+Sistema de Gerenciamento de Biblioteca
+
+Projeto acadêmico – Banco de Dados II.
